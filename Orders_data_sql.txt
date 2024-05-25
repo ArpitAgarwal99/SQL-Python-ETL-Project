@@ -1,0 +1,52 @@
+
+
+
+select * from orders_data;
+
+# top 10 highest revenue generating products
+select product_id , sum(sale_price) as revenue from orders_data group by product_id order by sum(sale_price) desc limit 10;
+
+#top 5 highest selling products in each region
+with cte as(
+select region, product_id,sum(sale_price) as sales  from orders_data group by region, product_id order by region, sales desc),
+cte2 as(
+select *, row_number() over(partition by region order by sales desc) as rnk from cte)
+
+select region,product_id,sales from cte2 where rnk<6;
+
+
+#find month over month growth comparision i.e.jan 2022 vs jan 2023
+
+with cte as(
+select *, month(order_date) as mo, year(order_date) as yr from orders_data),
+
+cte2 as(
+select yr,mo,sum(sale_price) as sales from cte group by yr,mo order by yr asc,mo asc, sales desc)
+
+select mo,
+sum(case when yr='2022' then sales else 0 end) as sales_2022,
+sum(case when yr='2023' then sales else 0 end) as sales_2023
+from cte2
+group by mo;
+
+# for each category which month has the highest sale
+with cte as(
+select *,format(order_date,'YYYYMM') as myr from orders_data),
+cte2 as(
+select category, myr , sum(sale_price) as sales, row_number() over(partition by category order by sum(sale_price) desc) as rn
+from cte group by category,myr order by category ,sales desc)
+
+select category,myr,sales from cte2 where rn=1;
+
+#which subcategoty has highest growth profit compared to 2022 vs 2023
+with cte as(
+select *, month(order_date) as mo, year(order_date) as yr from orders_data),
+cte2 as(
+select yr,sub_category,sum(profit) as profit from cte group by yr,sub_category order by yr asc,sub_category asc, profit desc),
+cte3 as(
+select sub_category,
+sum(case when yr='2022' then profit else 0 end) as profit_2022,
+sum(case when yr='2023' then profit else 0 end) as profit_2023
+from cte2
+group by sub_category)
+select * , ((profit_2023-profit_2022)/profit_2022) as growth_percent  from cte3 order by growth_percent desc;
